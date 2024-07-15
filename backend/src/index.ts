@@ -19,7 +19,24 @@ const io = new Server(8000, {
     }
 })
 
+const emailToSocketMap = new Map()
+const socketToEmailMap = new Map()
+
 io.on("connection", (socket: Socket) => {
     console.log(`Socket connected: ${socket.id}`);
+    socket.on("room-join", (data) => {
+        const {email, room} = data
+        emailToSocketMap.set(email, socket.id)
+        socketToEmailMap.set(socket.id, email)
+        io.to(room).emit("user-join", {
+            email,
+            id: socket.id
+        })
+        socket.join(room)
+        io.to(socket.id).emit("room-join", {
+            email: email,
+            room: room
+        })
+    })
     
 })
