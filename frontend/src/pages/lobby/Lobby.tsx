@@ -12,7 +12,7 @@ export default function Lobby() {
 
     const handalJoin = useCallback((e: React.FormEvent<HTMLFormElement>) => {
             e.preventDefault()
-            socket.emit("room-join", {email, room})
+            socket.emit("room:join", {email, room})
         }, 
         [email, room, socket]
     )
@@ -24,10 +24,10 @@ export default function Lobby() {
     }, [navigate])
 
     useEffect(() => {
-        socket.on("room-join", handalRoomJoin)
+        socket.on("room:join", handalRoomJoin)
 
         return () => {
-            socket.off("room-join", handalRoomJoin)
+            socket.off("room:join", handalRoomJoin)
         }
     }, [socket, handalRoomJoin])
 

@@ -17,3 +17,8 @@ export interface UserDataType {
     email: string,
     id: string
 }
+
+export interface IncommingCallType {
+    from: string,
+    offer: RTCSessionDescriptionInit
+}
