@@ -50,9 +50,27 @@ io.on("connection", (socket: Socket) => {
     });
     
     socket.on("call:accepted", ({to, ans}) => {
-        console.log("call accepted: ", to);
+        console.log("call accepted: ", ans);
 
         io.to(to).emit("call:accepted", {
+            from: socket.id,
+            ans
+        })
+    });
+
+    socket.on("peer:nagotiation:needed", ({offer, to}) => {
+        console.log("need : ", offer);
+        
+        io.to(to).emit("peer:nagotiation:needed", {
+            from: socket.id,
+            offer
+        })
+    })
+
+    socket.on("peer:nagotiation:ans", ({to, ans}) => {
+        console.log("final : ",ans);
+        
+        io.to(to).emit("peer:nagotiation:final", {
             from: socket.id,
             ans
         })
