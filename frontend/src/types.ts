@@ -20,5 +20,10 @@ export interface UserDataType {
 
 export interface IncommingCallType {
     from: string,
-    offer: RTCSessionDescriptionInit
+    offer: RTCSessionDescription
+}
+
+export interface CallAnserType {
+    from: string,
+    ans: RTCSessionDescription
 }
