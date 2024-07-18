@@ -50,7 +50,7 @@ io.on("connection", (socket: Socket) => {
     });
     
     socket.on("call:accepted", ({to, ans}) => {
-        console.log("call accepted: ", ans);
+        // console.log("call accepted: ", ans);
 
         io.to(to).emit("call:accepted", {
             from: socket.id,
@@ -59,7 +59,7 @@ io.on("connection", (socket: Socket) => {
     });
 
     socket.on("peer:nagotiation:needed", ({offer, to}) => {
-        console.log("need : ", offer);
+        // console.log("need : ", offer);
         
         io.to(to).emit("peer:nagotiation:needed", {
             from: socket.id,
@@ -68,11 +68,29 @@ io.on("connection", (socket: Socket) => {
     })
 
     socket.on("peer:nagotiation:ans", ({to, ans}) => {
-        console.log("final : ",ans);
+        // console.log("final : ",ans);
         
         io.to(to).emit("peer:nagotiation:final", {
             from: socket.id,
             ans
         })
     })
+
+    socket.on("ice-candidate", ({ candidate, to }) => {
+        console.log(`ICE candidate from ${socket.id} to ${to}`);
+        io.to(to).emit("new-ice-candidate", {
+            from: socket.id,
+            candidate
+        });
+    });
+
+    // Handle disconnection
+    socket.on("disconnect", () => {
+        const email = socketToEmailMap.get(socket.id);
+        if (email) {
+            emailToSocketMap.delete(email);
+            socketToEmailMap.delete(socket.id);
+        }
+        console.log(`Socket disconnected: ${socket.id}`);
+    });
 })

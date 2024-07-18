@@ -7,7 +7,7 @@ import webRTCService from "../../service/webRTCService";
 export default function Room() {
 
     const [userStream, setUserStream] = useState<MediaStream | null>(null)
-    const [remoteStream, setRemoteStream] = useState<MediaStream | null>(null)
+    const [remoteStream, setRemoteStream] = useState<MediaStream| null>(null)
     const [remoteUser, setRemoteUser] = useState("")
 
     const socket = useSocket()
@@ -19,21 +19,29 @@ export default function Room() {
 
     }, [])
 
+    const sendStream = useCallback(() => {
+        if (webRTCService.peer && userStream) {
+            userStream.getTracks().forEach(track => {
+                webRTCService.peer?.addTrack(track, userStream);
+            });
+            console.log("All tracks added to peer connection");
+        }
+    }, [userStream]);
+
     const handalCall = useCallback(async () => {
         const stream = await navigator.mediaDevices.getUserMedia({
             audio: true,
             video: true
         })
-
+        setUserStream(stream)
+        sendStream()
 
         const offer = await webRTCService.getOffer()
         socket.emit("user:call", {
             id: remoteUser,
             offer
         })
-
-        setUserStream(stream)
-    }, [socket, remoteUser]);
+    }, [socket, remoteUser, sendStream]);
 
     const handalIncommingCall = useCallback(async ({ from, offer }: IncommingCallType) => {
         console.log({
@@ -53,24 +61,26 @@ export default function Room() {
         })
     }, [socket]);
 
-    const sendStream = useCallback(() => {
-        if (webRTCService.peer) {
-            if(userStream) {
-                for (let track of userStream.getTracks()) {
-                    webRTCService.peer.addTrack(track, userStream)
-                }
-            }
-        }
-    }, [userStream])
 
     const handalCallAccepted = useCallback(async ({ ans }: CallAnserType) => {
         if (webRTCService.peer) {
             await webRTCService.setLocalDescription(ans);
-            console.log("call accepted");
             sendStream();
         }
-        
-    }, [sendStream])
+    }, [sendStream]);
+
+    const handleICECandidate = useCallback((event: RTCPeerConnectionIceEvent) => {
+        if (event.candidate) {
+            console.log("New ICE candidate: ", event.candidate);
+            socket.emit("ice-candidate", { candidate: event.candidate, to: remoteUser });
+        }
+    }, [socket, remoteUser]);
+    
+    const handleNewICECandidate = useCallback((incoming: { candidate: RTCIceCandidate }) => {
+        const candidate = new RTCIceCandidate(incoming.candidate);
+        webRTCService.peer?.addIceCandidate(candidate)
+            .catch(e => console.error("Error adding ICE candidate:", e));
+    }, []);
 
     const handalNagotiationneeded = useCallback(async () => {
         const offer = await webRTCService.getOffer()
@@ -78,19 +88,41 @@ export default function Room() {
             offer,
             to: remoteUser
         })
-    }, [socket, remoteUser])
+    }, [socket, remoteUser]);
 
     const handalNagotiationIncomming = useCallback(async ({ from, offer }: IncommingCallType) => {
+        await webRTCService.peer?.setRemoteDescription(new RTCSessionDescription(offer));
         const ans = await webRTCService.getAnswer(offer)
         socket.emit("peer:nagotiation:ans", {
             to: from,
             ans
         })
-    }, [socket])
+    }, [socket]);
 
     const handalNagotiationFinal = useCallback(async ({ ans }: CallAnserType) => {
         await webRTCService.setLocalDescription(ans)
-    }, [])
+    }, []);
+
+    const handleTrack = useCallback((ev: RTCTrackEvent) => {
+        console.log("Track event received:", ev.track.kind);
+        const [stream] = ev.streams;
+        console.log("Remote stream received:", stream.id);
+        setRemoteStream(stream);
+    }, []);
+
+
+    //* All useEffect 
+    useEffect(() => {
+        if (webRTCService.peer) {
+            webRTCService.peer.addEventListener("icecandidate", handleICECandidate);
+        }
+        socket.on("new-ice-candidate", handleNewICECandidate);
+    
+        return () => {
+            webRTCService.peer?.removeEventListener("icecandidate", handleICECandidate);
+            socket.off("new-ice-candidate", handleNewICECandidate);
+        };
+    }, [handleICECandidate, handleNewICECandidate, socket]);
 
     useEffect(() => {
         if (webRTCService.peer) {
@@ -101,16 +133,16 @@ export default function Room() {
                 webRTCService.peer.removeEventListener("negotiationneeded", handalNagotiationneeded)
             }
         }
-    }, [handalNagotiationneeded])
+    }, [handalNagotiationneeded]);
 
     useEffect(() => {
         if (webRTCService.peer) {
-            webRTCService.peer.addEventListener("track", async (ev) => {
-                const remoteStream = ev.streams
-                setRemoteStream(remoteStream[0])
-            })
+            webRTCService.peer.addEventListener("track", handleTrack)
         }
-    }, [])
+        return () => {
+            webRTCService.peer?.removeEventListener("track", handleTrack)
+        }
+    }, []);
 
     useEffect(() => {
         socket.on("user:join", handalUserJoin)
@@ -141,14 +173,27 @@ export default function Room() {
         <main>
             <h1>Room: {socket.id}</h1>
             <p>{remoteUser ? "Connected" : "No one can connect"}</p>
-            <p>{`from: ${socket.id}  to: ${remoteUser}`}</p>
-            {
-                userStream && <ReactPlayer url={userStream} playing muted height={"100px"} width={"200px"} />
-            }
-            {
-                remoteStream && <ReactPlayer url={remoteStream} playing muted height={"100px"} width={"200px"} />
-            }
-            {remoteUser && <button onClick={handalCall} >Call</button>}
+            {userStream && (
+                <div>
+                    <p>Local Stream</p>
+                    <ReactPlayer url={userStream} playing muted height={"100px"} width={"200px"} />
+                </div>
+            )}
+            {remoteStream && (
+                <div>
+                    <p>Remote Stream</p>
+                    <ReactPlayer 
+                        url={remoteStream} 
+                        playing 
+                        muted
+                        height={"100px"} 
+                        width={"200px"} 
+                        onError={(e) => console.log("ReactPlayer error:", e)}
+                    />
+                </div>
+            )}
+            {remoteUser && <button onClick={handalCall}>Call</button>}
+            {remoteUser && <button onClick={sendStream}>send vid</button>}
         </main>
     )
 }
