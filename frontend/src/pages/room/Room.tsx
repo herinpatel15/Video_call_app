@@ -64,17 +64,10 @@ export default function Room() {
     }, [userStream])
 
     const handalCallAccepted = useCallback(async ({ ans }: CallAnserType) => {
-        try {
-            if (webRTCService.peer && webRTCService.peer.signalingState === "have-remote-offer") {
-                await webRTCService.setRemoteDescription(new RTCSessionDescription(ans));
-                console.log("call accepted");
-                sendStream();
-            } else {
-                console.log("Cannot set local description, current signaling state: ", webRTCService.peer?.signalingState);
-            }
-        } catch (err) {
-            console.log("error : ", err);
-            
+        if (webRTCService.peer) {
+            await webRTCService.setLocalDescription(ans);
+            console.log("call accepted");
+            sendStream();
         }
         
     }, [sendStream])

@@ -36,29 +36,9 @@ class WebRTCService {
 
     async setLocalDescription(ans: RTCSessionDescriptionInit) {
         if (this.peer) {
-            if (this.peer.signalingState === "have-remote-offer" || this.peer.signalingState === "stable") {
-                await this.peer.setLocalDescription(new RTCSessionDescription(ans))
-            } else {
-                console.error("Cannot set local description, current signaling state: ", this.peer.signalingState);
-            }
+            await this.peer.setRemoteDescription(new RTCSessionDescription(ans))
         }
     }
-
-    async setRemoteDescription(ans: RTCSessionDescriptionInit) {
-        if (this.peer) {
-            if (this.peer.signalingState === "have-local-offer") {
-                await this.peer.setRemoteDescription(new RTCSessionDescription(ans));
-            } else {
-                console.error("Cannot set remote description, current signaling state: ", this.peer.signalingState);
-            }
-        }
-    }
-
-    // async setRemoteDescription(ans: RTCSessionDescriptionInit) {
-    //     if (this.peer) {
-    //         await this.peer.setRemoteDescription(new RTCSessionDescription(ans));
-    //     }
-    // }
 }
 
 export default new WebRTCService()
